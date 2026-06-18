@@ -3,36 +3,25 @@
   "url": "https://www.saucedemo.com",
   "steps": [
     {
-      "step": "type \"{{username}}\" into the username field",
-      "params": {
-        "username": "standard_user"
-      }
+      "step": "type \"{{username}}\" into the username field"
     },
     {
-      "step": "type \"{{password}}\" into the password field",
-      "params": {
-        "password": "secret_sauce"
-      }
+      "step": "type \"{{password}}\" into the password field"
     },
     {
-      "step": "click the login button",
-      "params": {}
+      "step": "click the login button"
     },
     {
-      "step": "select the option 'Price (low to high)' from the product sort dropdown",
-      "params": {}
+      "step": "select the option 'Price (low to high)' from the product sort dropdown"
     },
     {
-      "step": "select the option 'Name (A to Z)' from the product sort dropdown",
-      "params": {}
+      "step": "select the option 'Name (A to Z)' from the product sort dropdown"
     },
     {
-      "step": "select the option 'Price (high to low)' from the product sort dropdown",
-      "params": {}
+      "step": "select the option 'Price (high to low)' from the product sort dropdown"
     },
     {
-      "step": "select the option 'Name (Z to A)' from the product sort dropdown",
-      "params": {}
+      "step": "select the option 'Name (Z to A)' from the product sort dropdown"
     }
   ],
   "done": true,

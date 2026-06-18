@@ -20,6 +20,12 @@ export interface AgentOptions {
   replan?: boolean;
   /** LLM timeout per planner call, ms. Default PWAI_TIMEOUT or 300000. */
   timeout?: number;
+  /**
+   * Credentials injected at runtime (from .env). These ALWAYS override any
+   * username/password the planner proposes, and are never written to the
+   * saved plan, so secrets stay in .env.
+   */
+  credentials?: { username?: string; password?: string };
   llm?: LlmProvider;
   log?: (msg: string) => void;
 }
@@ -49,6 +55,15 @@ const planDir = () => join(cacheDir(), 'plans');
 const normUrl = (url: string) => url.replace(/\/+$/, '');
 const normStep = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
+/** Remove username/password so secrets never get written to a saved plan. */
+function stripCreds(params?: Record<string, string>): Record<string, string> | undefined {
+  if (!params) return params;
+  const out = Object.fromEntries(
+    Object.entries(params).filter(([k]) => k !== 'username' && k !== 'password'),
+  );
+  return Object.keys(out).length ? out : undefined;
+}
+
 function planFile(goal: string, url: string): string {
   const hash = createHash('sha256').update(`${goal}\n${normUrl(url)}`).digest('hex').slice(0, 16);
   const slug = goal.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
@@ -67,9 +82,11 @@ function loadPlan(goal: string, url: string): SavedPlan | undefined {
 
 function savePlan(goal: string, url: string, steps: PlannedStep[], done: boolean): void {
   mkdirSync(planDir(), { recursive: true });
+  // Never persist credentials in the plan.
+  const safe = steps.map((s) => ({ step: s.step, params: stripCreds(s.params) }));
   writeFileSync(
     planFile(goal, url),
-    JSON.stringify({ goal, url: normUrl(url), steps, done, savedAt: new Date().toISOString() }, null, 2) + '\n',
+    JSON.stringify({ goal, url: normUrl(url), steps: safe, done, savedAt: new Date().toISOString() }, null, 2) + '\n',
     'utf8',
   );
 }
@@ -83,14 +100,12 @@ export function hasCompletedPlan(goal: string, url: string): boolean {
  * Autonomous test-writer loop, cache-first at EVERY level:
  *
  * - Plan cache: a run saves its step sequence to .pwai-cache/plans/.
- *   Re-running the same goal+url replays the plan with ZERO planner LLM
- *   calls. A partial plan resumes where it left off.
- * - Step cache: each step runs through the same ai() engine as the tests,
- *   so step code replays from .pwai-cache without codegen LLM calls.
- * - Step reuse: when planning IS needed, the planner is shown the wording
- *   of already-cached steps and told to reuse it verbatim.
- * - De-dup / anti-loop: a step the planner already ran is never executed
- *   twice; repeated proposals end the run (goal assumed complete).
+ *   Re-running the same goal+url replays the plan with ZERO planner LLM calls.
+ * - Step cache: each step runs through the same ai() engine as the tests.
+ * - Step reuse: the planner is shown already-cached step wordings to reuse.
+ * - De-dup / anti-loop: a step already run is never executed twice.
+ * - Credentials: username/password always come from options.credentials (.env),
+ *   overriding whatever the planner proposes, and are never saved to the plan.
  */
 export async function runAgent(page: Page, options: AgentOptions): Promise<AgentResult> {
   let llm: LlmProvider | undefined = options.llm;
@@ -98,16 +113,21 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
   const log = options.log ?? ((m: string) => console.log(`[agent] ${m}`));
   const maxSteps = options.maxSteps ?? 15;
   const maxFailures = options.maxConsecutiveFailures ?? 3;
-  // Planner prompts are large (page HTML); allow generous time on local LLMs
   const timeout = options.timeout ?? (Number(process.env.PWAI_TIMEOUT) || 300_000);
+
+  // .env credentials override any username/password the planner emits.
+  const credOverlay: Record<string, string> = {};
+  if (options.credentials?.username !== undefined) credOverlay.username = options.credentials.username;
+  if (options.credentials?.password !== undefined) credOverlay.password = options.credentials.password;
+  const withCreds = (p: StepParams): StepParams => ({ ...p, ...credOverlay });
 
   const history: string[] = [];
   const planned: PlannedStep[] = [];
   const params: StepParams = {};
-  const seen = new Set<string>(); // normalized step texts already executed
+  const seen = new Set<string>();
   let lastError: string | undefined;
   let failures = 0;
-  let repeats = 0; // consecutive duplicate proposals from the planner
+  let repeats = 0;
 
   // ---- Phase 1: replay saved plan (no planner calls) ----
   const saved = options.replan ? undefined : loadPlan(options.goal, options.url);
@@ -115,9 +135,9 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
     log(`replaying saved plan (${saved.steps.length} step(s), ${saved.done ? 'complete' : 'partial'})`);
     let planBroken = false;
     for (const ps of saved.steps) {
-      if (seen.has(normStep(ps.step))) continue; // skip dupes baked into old plans
+      if (seen.has(normStep(ps.step))) continue;
       try {
-        await runAiSteps(page, ps.step, { ...params, ...ps.params }, { llm: options.llm });
+        await runAiSteps(page, ps.step, withCreds({ ...params, ...ps.params }), { llm: options.llm });
         history.push(ps.step);
         planned.push(ps);
         seen.add(normStep(ps.step));
@@ -141,7 +161,6 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
     return { steps: history, params, done, reason };
   };
 
-  // Tell the planner which step wordings are already cached (reuse = no codegen)
   const knownSteps = new StepCache(cacheDir()).list().map((e) => e.step).slice(0, 40);
 
   for (let i = history.length; i < maxSteps; i++) {
@@ -156,7 +175,6 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
       lastError = err instanceof Error ? err.message.split('\n')[0] : String(err);
       log(`planner failed (${failures}/${maxFailures}): ${lastError}`);
       if (failures >= maxFailures) {
-        // Partial plan is saved so the next run resumes from here
         return finish(false, `planner failed ${failures} time(s): ${lastError}`);
       }
       continue;
@@ -173,9 +191,6 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
 
     const step = decision.step!;
 
-    // Skip steps the planner has already run — a repeated proposal means the
-    // model is looping. Don't re-execute; nudge it to do something new or
-    // finish. After 2 repeats, assume the goal is complete and stop.
     if (seen.has(normStep(step))) {
       repeats++;
       log(`duplicate step ignored (${repeats}): ${step}`);
@@ -187,12 +202,11 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
       continue;
     }
 
-    const stepParams = { ...params, ...decision.params };
     log(`step ${history.length + 1}: ${step}`);
 
     try {
-      // Same engine as tests: cache-first, generates + caches on miss
-      await runAiSteps(page, step, stepParams, { llm: options.llm });
+      // .env credentials override the planner's username/password here.
+      await runAiSteps(page, step, withCreds({ ...params, ...decision.params }), { llm: options.llm });
       history.push(step);
       planned.push({ step, params: decision.params });
       seen.add(normStep(step));
@@ -213,8 +227,12 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
   return finish(false, `reached maxSteps (${maxSteps})`);
 }
 
-/** Render an agent run as a permanent spec file (Workflow 2 style). */
-export function renderSpec(result: AgentResult, goal: string, url: string): string {
+/**
+ * Render an agent run as a permanent spec file (Workflow 2 style).
+ * The URL comes from BASE_URL in .env, and username/password come from
+ * CREDENTIALS in .env — generated specs never hardcode them.
+ */
+export function renderSpec(result: AgentResult, goal: string, _url: string): string {
   const seen = new Set<string>();
   const uniqueSteps = result.steps.filter((s) => {
     const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -223,14 +241,36 @@ export function renderSpec(result: AgentResult, goal: string, url: string): stri
     return true;
   });
   const stepsSrc = uniqueSteps.map((s) => `        ${JSON.stringify(s)},`).join('\n');
-  const hasParams = Object.keys(result.params).length > 0;
-  const paramsSrc = hasParams ? `\n      ${JSON.stringify(result.params)},` : '';
+
+  const usesCreds = 'username' in result.params || 'password' in result.params;
+  const extra = Object.fromEntries(
+    Object.entries(result.params).filter(([k]) => k !== 'username' && k !== 'password'),
+  );
+  const hasExtra = Object.keys(extra).length > 0;
+
+  const imports = usesCreds
+    ? `import { BASE_URL, CREDENTIALS } from '../src/test-config';`
+    : `import { BASE_URL } from '../src/test-config';`;
+
+  let paramsSrc = '';
+  if (usesCreds && hasExtra) {
+    paramsSrc = `\n      { ...CREDENTIALS, ${Object.entries(extra)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(v)}`)
+      .join(', ')} },`;
+  } else if (usesCreds) {
+    paramsSrc = `\n      CREDENTIALS,`;
+  } else if (hasExtra) {
+    paramsSrc = `\n      ${JSON.stringify(extra)},`;
+  }
+
   return `import { test } from '../src/fixtures';
+${imports}
 
 // Generated by the playwright-ai agent — goal: ${goal.replace(/\n/g, ' ')}
+// URL + credentials come from .env (see .env.example).
 // Steps are cached in .pwai-cache; they replay without an LLM and self-heal on UI changes.
 test(${JSON.stringify(goal)}, async ({ page, ai }) => {
-  await page.goto(${JSON.stringify(url)});
+  await page.goto(BASE_URL);
   await ai(
     [
 ${stepsSrc}

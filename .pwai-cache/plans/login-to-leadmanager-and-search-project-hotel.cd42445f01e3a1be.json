@@ -1,0 +1,17 @@
+{
+  "goal": "login to leadmanager and search project 'hotel'",
+  "url": "https://staging.bci-tnlm.com",
+  "steps": [
+    {
+      "step": "click the login button"
+    },
+    {
+      "step": "type \"{{username}}\" into the username field"
+    },
+    {
+      "step": "type \"{{password}}\" into the password field"
+    }
+  ],
+  "done": true,
+  "savedAt": "2026-06-18T08:04:07.757Z"
+}

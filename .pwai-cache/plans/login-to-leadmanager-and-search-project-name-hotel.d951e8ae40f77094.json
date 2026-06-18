@@ -1,0 +1,17 @@
+{
+  "goal": "login to leadmanager and search project name 'hotel' and validate project list ",
+  "url": "https://staging.bci-tnlm.com",
+  "steps": [
+    {
+      "step": "click the login button"
+    },
+    {
+      "step": "type \"{{username}}\" into the username field"
+    },
+    {
+      "step": "type \"{{password}}\" into the password field"
+    }
+  ],
+  "done": true,
+  "savedAt": "2026-06-18T07:54:19.962Z"
+}

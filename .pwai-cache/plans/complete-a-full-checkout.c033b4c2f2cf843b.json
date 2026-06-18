@@ -3,16 +3,10 @@
   "url": "https://www.saucedemo.com",
   "steps": [
     {
-      "step": "type \"{{username}}\" into the username field",
-      "params": {
-        "username": "standard_user"
-      }
+      "step": "type \"{{username}}\" into the username field"
     },
     {
-      "step": "type \"{{password}}\" into the password field",
-      "params": {
-        "password": "secret_sauce"
-      }
+      "step": "type \"{{password}}\" into the password field"
     },
     {
       "step": "click the login button"
