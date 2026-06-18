@@ -1,0 +1,23 @@
+{
+  "name": "playwright-ai",
+  "version": "1.0.0",
+  "description": "Playwright AI fixture that generates and continuously runs E2E test steps from natural language (port of cy-ai / cy.prompt Workflow 2)",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:regenerate": "cross-env PWAI_REGENERATE=1 playwright test",
+    "agent": "tsx agent/run-agent.ts",
+    "typecheck": "tsc --noEmit",
+    "cache:clear": "rimraf .pwai-cache"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

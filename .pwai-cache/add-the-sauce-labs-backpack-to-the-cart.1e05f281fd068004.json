@@ -1,0 +1,9 @@
+{
+  "step": "add the \"Sauce Labs Backpack\" to the cart",
+  "code": "await page.locator('[data-test=\"add-to-cart-sauce-labs-backpack\"]').click();",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:02:21.131Z",
+  "healCount": 0
+}

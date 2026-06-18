@@ -1,0 +1,9 @@
+{
+  "step": "see heading \"Example Domain\"",
+  "code": "await expect(page.getByRole('heading', { name: 'Example Domain' })).toBeVisible();",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-6",
+  "url": "https://example.com/",
+  "generatedAt": "2026-06-11T05:55:19.909Z",
+  "healCount": 0
+}

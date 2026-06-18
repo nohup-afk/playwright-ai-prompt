@@ -1,0 +1,9 @@
+{
+  "step": "verify the order confirmation says \"Thank you for your order!\"",
+  "code": "await expect(page.locator('[data-test=\"complete-header\"]')).toHaveText('Thank you for your order!');",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:37:33.615Z",
+  "healCount": 0
+}

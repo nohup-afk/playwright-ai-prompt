@@ -1,0 +1,7 @@
+node_modules/
+test-results/
+playwright-report/
+.env
+# Generated AI step cache — COMMIT this in Workflow 2 (continuous AI-powered testing)
+# so CI reuses cached steps instead of calling the LLM. Uncomment to ignore instead:
+# .pwai-cache/

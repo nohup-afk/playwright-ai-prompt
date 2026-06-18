@@ -1,0 +1,9 @@
+{
+  "step": "click the checkout button",
+  "code": "await page.locator('[data-test=\"checkout\"]').click();",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:37:33.615Z",
+  "healCount": 0
+}

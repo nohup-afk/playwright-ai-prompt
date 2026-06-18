@@ -1,0 +1,9 @@
+{
+  "step": "open the shopping cart",
+  "code": "await page.locator('.shopping_cart_link').click();",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:37:33.615Z",
+  "healCount": 0
+}

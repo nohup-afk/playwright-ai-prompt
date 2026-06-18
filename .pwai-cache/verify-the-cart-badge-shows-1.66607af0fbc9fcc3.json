@@ -1,0 +1,9 @@
+{
+  "step": "verify the cart badge shows 1",
+  "code": "await expect(page.locator('.shopping_cart_badge')).toHaveText('1');",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:02:21.131Z",
+  "healCount": 0
+}

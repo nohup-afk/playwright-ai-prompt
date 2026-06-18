@@ -1,0 +1,59 @@
+{
+  "goal": "complete a full checkout",
+  "url": "https://www.saucedemo.com",
+  "steps": [
+    {
+      "step": "type \"{{username}}\" into the username field",
+      "params": {
+        "username": "standard_user"
+      }
+    },
+    {
+      "step": "type \"{{password}}\" into the password field",
+      "params": {
+        "password": "secret_sauce"
+      }
+    },
+    {
+      "step": "click the login button"
+    },
+    {
+      "step": "add the \"Sauce Labs Backpack\" to the cart"
+    },
+    {
+      "step": "open the shopping cart"
+    },
+    {
+      "step": "click the checkout button"
+    },
+    {
+      "step": "type \"{{firstName}}\" into the first name field",
+      "params": {
+        "firstName": "Abdul"
+      }
+    },
+    {
+      "step": "type \"{{lastName}}\" into the last name field",
+      "params": {
+        "lastName": "Aziz"
+      }
+    },
+    {
+      "step": "type \"{{postalCode}}\" into the postal code field",
+      "params": {
+        "postalCode": "12345"
+      }
+    },
+    {
+      "step": "click the continue button"
+    },
+    {
+      "step": "click the finish button"
+    },
+    {
+      "step": "verify the order confirmation says \"Thank you for your order!\""
+    }
+  ],
+  "done": true,
+  "savedAt": "2026-06-11T07:37:33.674Z"
+}

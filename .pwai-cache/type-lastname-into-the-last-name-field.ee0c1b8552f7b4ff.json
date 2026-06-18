@@ -1,0 +1,9 @@
+{
+  "step": "type \"{{lastName}}\" into the last name field",
+  "code": "await page.getByPlaceholder('Last Name').fill(String(params.lastName));",
+  "provider": "cowork",
+  "model": "claude-fable-5",
+  "url": "https://www.saucedemo.com/",
+  "generatedAt": "2026-06-11T07:37:33.615Z",
+  "healCount": 0
+}

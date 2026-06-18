@@ -1,0 +1,24 @@
+{
+  "goal": "log in and select by Price low to high",
+  "url": "https://www.saucedemo.com",
+  "steps": [
+    {
+      "step": "type \"{{username}}\" into the username field",
+      "params": {
+        "username": "standard_user"
+      }
+    },
+    {
+      "step": "type \"{{password}}\" into the password field",
+      "params": {
+        "password": "secret_sauce"
+      }
+    },
+    {
+      "step": "click the login button",
+      "params": {}
+    }
+  ],
+  "done": false,
+  "savedAt": "2026-06-11T08:25:32.528Z"
+}
