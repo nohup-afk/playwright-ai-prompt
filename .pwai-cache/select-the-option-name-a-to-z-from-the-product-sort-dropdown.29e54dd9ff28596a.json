@@ -1,0 +1,9 @@
+{
+  "step": "select the option 'Name (A to Z)' from the product sort dropdown",
+  "code": "await page.selectOption('[data-test=\"product-sort-container\"]', { label: 'Name (A to Z)' });",
+  "provider": "llamacpp",
+  "model": "default",
+  "url": "https://www.saucedemo.com/inventory.html",
+  "generatedAt": "2026-06-18T06:48:53.090Z",
+  "healCount": 0
+}

@@ -17,7 +17,7 @@ export function buildPlannerPrompt(
   knownSteps: string[] = [],
 ): string {
   const historyNote = history.length
-    ? `Steps already completed successfully:\n${history.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+    ? `Steps already completed successfully (do NOT repeat any of these):\n${history.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
     : 'No steps completed yet.';
 
   const errorNote = lastError
@@ -53,8 +53,9 @@ Rules:
    - Put data values in {{placeholders}} inside the step text and supply
      them in "params": {"action":"step","step":"type \\"{{username}}\\" into the username field","params":{"username":"standard_user"}}
    - One action per step. The goal should end with at least one "verify" step.
-3. When the goal is fully achieved AND verified: {"action":"done","reason":"..."}
-4. If the goal is impossible on this page: {"action":"abort","reason":"..."}
+3. NEVER repeat a step already listed as completed above. Each step must be a new, distinct action. If the goal involves trying several options (e.g. every value in a dropdown), cover each DIFFERENT option once, then finish.
+4. When the goal is fully achieved AND verified: {"action":"done","reason":"..."}
+5. If the goal is impossible on this page: {"action":"abort","reason":"..."}
 `;
 }
 

@@ -1,0 +1,9 @@
+{
+  "step": "select option A from the sort dropdown",
+  "code": "await page.selectOption('[data-test=\"sort\"]', { label: 'x' });",
+  "provider": "s",
+  "model": "m",
+  "url": "https://x/",
+  "generatedAt": "2026-06-18T07:09:03.018Z",
+  "healCount": 0
+}

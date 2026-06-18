@@ -12,5 +12,7 @@ export default defineConfig({
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // page.getByTestId() matches this attribute (see selector priority in prompt-template.ts)
+    testIdAttribute: 'data-testid',
   },
 });

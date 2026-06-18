@@ -47,6 +47,7 @@ interface SavedPlan {
 const cacheDir = () => process.env.PWAI_CACHE_DIR || '.pwai-cache';
 const planDir = () => join(cacheDir(), 'plans');
 const normUrl = (url: string) => url.replace(/\/+$/, '');
+const normStep = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 function planFile(goal: string, url: string): string {
   const hash = createHash('sha256').update(`${goal}\n${normUrl(url)}`).digest('hex').slice(0, 16);
@@ -87,8 +88,9 @@ export function hasCompletedPlan(goal: string, url: string): boolean {
  * - Step cache: each step runs through the same ai() engine as the tests,
  *   so step code replays from .pwai-cache without codegen LLM calls.
  * - Step reuse: when planning IS needed, the planner is shown the wording
- *   of already-cached steps and told to reuse it verbatim, so even brand-new
- *   goals avoid codegen calls for actions the cache has seen before.
+ *   of already-cached steps and told to reuse it verbatim.
+ * - De-dup / anti-loop: a step the planner already ran is never executed
+ *   twice; repeated proposals end the run (goal assumed complete).
  */
 export async function runAgent(page: Page, options: AgentOptions): Promise<AgentResult> {
   let llm: LlmProvider | undefined = options.llm;
@@ -102,8 +104,10 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
   const history: string[] = [];
   const planned: PlannedStep[] = [];
   const params: StepParams = {};
+  const seen = new Set<string>(); // normalized step texts already executed
   let lastError: string | undefined;
   let failures = 0;
+  let repeats = 0; // consecutive duplicate proposals from the planner
 
   // ---- Phase 1: replay saved plan (no planner calls) ----
   const saved = options.replan ? undefined : loadPlan(options.goal, options.url);
@@ -111,10 +115,12 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
     log(`replaying saved plan (${saved.steps.length} step(s), ${saved.done ? 'complete' : 'partial'})`);
     let planBroken = false;
     for (const ps of saved.steps) {
+      if (seen.has(normStep(ps.step))) continue; // skip dupes baked into old plans
       try {
         await runAiSteps(page, ps.step, { ...params, ...ps.params }, { llm: options.llm });
         history.push(ps.step);
         planned.push(ps);
+        seen.add(normStep(ps.step));
         Object.assign(params, ps.params);
       } catch (err) {
         lastError = err instanceof Error ? err.message.split('\n')[0] : String(err);
@@ -166,6 +172,21 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
     }
 
     const step = decision.step!;
+
+    // Skip steps the planner has already run — a repeated proposal means the
+    // model is looping. Don't re-execute; nudge it to do something new or
+    // finish. After 2 repeats, assume the goal is complete and stop.
+    if (seen.has(normStep(step))) {
+      repeats++;
+      log(`duplicate step ignored (${repeats}): ${step}`);
+      if (repeats >= 2) {
+        log('done: planner kept repeating steps — assuming goal complete');
+        return finish(true, 'completed (planner stopped proposing new steps)');
+      }
+      lastError = `You already performed this step: "${step}". Do NOT repeat it. Propose a DIFFERENT next action, or return {"action":"done"} if the goal is achieved.`;
+      continue;
+    }
+
     const stepParams = { ...params, ...decision.params };
     log(`step ${history.length + 1}: ${step}`);
 
@@ -174,9 +195,11 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
       await runAiSteps(page, step, stepParams, { llm: options.llm });
       history.push(step);
       planned.push({ step, params: decision.params });
+      seen.add(normStep(step));
       Object.assign(params, decision.params);
       lastError = undefined;
       failures = 0;
+      repeats = 0;
     } catch (err) {
       failures++;
       lastError = err instanceof Error ? err.message.split('\n')[0] : String(err);
@@ -192,7 +215,14 @@ export async function runAgent(page: Page, options: AgentOptions): Promise<Agent
 
 /** Render an agent run as a permanent spec file (Workflow 2 style). */
 export function renderSpec(result: AgentResult, goal: string, url: string): string {
-  const stepsSrc = result.steps.map((s) => `        ${JSON.stringify(s)},`).join('\n');
+  const seen = new Set<string>();
+  const uniqueSteps = result.steps.filter((s) => {
+    const key = s.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const stepsSrc = uniqueSteps.map((s) => `        ${JSON.stringify(s)},`).join('\n');
   const hasParams = Object.keys(result.params).length > 0;
   const paramsSrc = hasParams ? `\n      ${JSON.stringify(result.params)},` : '';
   return `import { test } from '../src/fixtures';

@@ -1,0 +1,9 @@
+{
+  "step": "select the option 'Price (low to high)' from the product sort dropdown",
+  "code": "await page.selectOption('[data-test=\"product-sort-container\"]', { label: 'Price (low to high)' });",
+  "provider": "llamacpp",
+  "model": "default",
+  "url": "https://www.saucedemo.com/inventory.html",
+  "generatedAt": "2026-06-18T06:39:26.490Z",
+  "healCount": 0
+}
