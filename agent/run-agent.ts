@@ -1,24 +1,26 @@
 /**
  * CLI for the autonomous test-writer agent.
  *
- *   npm run agent -- --url https://www.saucedemo.com --goal "log in and add the backpack to the cart"
+ *   npm run agent -- --goal "log in and add the backpack to the cart"
  *
  * If the goal already has a spec file, it RUNS that spec from cache instead
  * of planning again. Use --replan to force regeneration.
  *
  * Flags:
- *   --url <url>        start page (required)
+ *   --url <url>        start page (optional; defaults to BASE_URL in .env)
  *   --goal "<text>"    what the test should achieve (required)
  *   --name <slug>      spec filename (default: derived from goal)
  *   --max-steps <n>    planner iterations (default 15)
  *   --headed           show the browser
  *   --replan           ignore saved plan/spec and re-plan from scratch
  */
+import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
 import { runAgent, writeSpec } from './agent';
+import { BASE_URL } from '../src/test-config';
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,10 +37,12 @@ function runExistingSpec(specPath: string): never {
 }
 
 async function main() {
-  const url = arg('url');
+  // --url is optional; defaults to BASE_URL from .env
+  const url = arg('url') || BASE_URL;
   const goal = arg('goal');
-  if (!url || !goal) {
-    console.error('Usage: npm run agent -- --url <url> --goal "<goal>" [--name <slug>] [--max-steps <n>] [--headed] [--replan]');
+  if (!goal) {
+    console.error('Usage: npm run agent -- --goal "<goal>" [--url <url>] [--name <slug>] [--max-steps <n>] [--headed] [--replan]');
+    console.error('(--url defaults to BASE_URL in .env)');
     process.exit(1);
   }
 

@@ -7,17 +7,20 @@ Write E2E test steps in plain English. An LLM turns them into Playwright code on
 
 ```ts
 import { test } from '../src/fixtures';
+import { BASE_URL, CREDENTIALS } from '../src/test-config'; // URL + creds from .env
 
 test('logs in', async ({ page, ai }) => {
-  await page.goto('https://www.saucedemo.com');
+  await page.goto(BASE_URL);
   await ai([
     'type "{{username}}" into the username field',
     'type "{{password}}" into the password field',
     'click the login button',
     'verify the page shows the "Products" title',
-  ], { username: 'standard_user', password: 'secret_sauce' });
+  ], CREDENTIALS);
 });
 ```
+
+Steps are resilient by design: generated locators follow a Cypress-style [selector priority](https://docs.cypress.io/api/cypress-api/element-selector-api) — `data-cy` → `data-test` → `data-testid` → role/label → text → id → name — never brittle class chains.
 
 ## How it works (Workflow 2)
 
@@ -33,13 +36,32 @@ Placeholders like `{{username}}` keep the cache valid when dynamic values change
 ```bash
 npm install
 npx playwright install chromium
+cp .env.example .env   # then edit .env
 ```
+
+### Application under test (URL + credentials)
+
+The target URL and test credentials live in `.env` (gitignored), never in the committed specs. Copy `.env.example` to `.env` and edit:
+
+```bash
+BASE_URL=https://www.saucedemo.com
+TEST_USERNAME=standard_user
+TEST_PASSWORD=secret_sauce
+# optional, used by the checkout spec:
+# TEST_FIRST_NAME=Abdul
+# TEST_LAST_NAME=Aziz
+# TEST_POSTAL_CODE=12345
+```
+
+Specs read these via `src/test-config.ts` (`BASE_URL`, `CREDENTIALS`), `playwright.config.ts` sets `use.baseURL`, and the agent's `--url` defaults to `BASE_URL`. To test a different app, change `.env` — no code edits. A spec that needs a specific account can still pass its own `params` (e.g. the locked-out-user test).
+
+Note: step text keeps placeholder *names* like `'type "{{username}}"'` (required for a stable cache key); the actual secret values come from `.env` at runtime and are never committed.
 
 ### Choose an LLM provider
 
 Full documentation (switching, per-call override, writing your own provider): [docs/providers.md](docs/providers.md)
 
-Copy `.env.example` to `.env` (or set env vars). Default is llama.cpp:
+Set `PWAI_PROVIDER` in `.env` (or as an env var). Default is llama.cpp:
 
 | Provider | Env | Default model |
 |---|---|---|
@@ -50,11 +72,15 @@ Copy `.env.example` to `.env` (or set env vars). Default is llama.cpp:
 | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
 
 ```bash
-# llama.cpp (local, free) — uses llama-server's OpenAI-compatible API
-llama-server -m qwen2.5-coder-7b-instruct-q4_k_m.gguf -c 16384 --port 8080
+# llama.cpp (local, free) — uses llama-server's OpenAI-compatible API.
+# -hf downloads the model from Hugging Face on first run, then caches it.
+llama-server -hf Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M -c 16384 --port 8080
 
 # or Ollama
 set PWAI_PROVIDER=ollama      # PowerShell: $env:PWAI_PROVIDER='ollama'
+
+# or your claude.ai subscription (no API key) via the Claude Code CLI
+set PWAI_PROVIDER=claude-cli
 
 # or hosted
 set PWAI_PROVIDER=anthropic
@@ -111,32 +137,9 @@ Full documentation: [docs/agent.md](docs/agent.md)
 The agent explores a page with the LLM, executes steps through the same `ai()` engine (so everything is cached as it goes), and writes a permanent spec when the goal is verified:
 
 ```bash
-npm run agent -- --url https://www.saucedemo.com --goal "log in and add the backpack to the cart" --headed
+npm run agent -- --goal "log in and add the backpack to the cart" --headed
 ```
 
-Flags: `--name <slug>` (spec filename), `--max-steps <n>` (default 15), `--headed`, `--replan` (ignore the saved plan). Output lands in `tests/<name>.spec.ts` with its step code already in `.pwai-cache`, so the new spec replays instantly.
+Flags: `--url <url>` (optional; defaults to `BASE_URL` in `.env`), `--name <slug>` (spec filename), `--max-steps <n>` (default 15), `--headed`, `--replan` (ignore the saved plan). Output lands in `tests/<name>.spec.ts` with its step code already in `.pwai-cache`, so the new spec replays instantly.
 
-The agent is cache-first at two levels: step code comes from `.pwai-cache` like in tests, and the plan itself is saved to `.pwai-cache/plans/` per goal+url — re-running the same goal replays the plan with zero LLM calls (a partial plan resumes where it stopped). Only the FIRST run of a new goal is slow, because each planning decision is one LLM call with the page snapshot; on local llama.cpp expect roughly 30–90 s per step. Smaller/faster model quants or `PWAI_PROVIDER=claude-cli` speed this up.
-
-There is also a Claude Code subagent at `.claude/agents/test-writer.md` — in Claude Code, ask it to "add a test for X" and it follows this repo's step/placeholder/cache conventions (see CLAUDE.md).
-
-## Project layout
-
-```
-src/
-  ai.ts               core engine: cache → execute → self-heal
-  fixtures.ts         Playwright test extension exposing ai()
-  cache.ts            file cache (.pwai-cache/*.json)
-  executor.ts         runs generated code; HTML snapshotting
-  prompt-template.ts  LLM prompt + code extraction
-  providers/          llamacpp | ollama | anthropic | openai (pluggable)
-agent/
-  run-agent.ts        CLI (npm run agent)
-  agent.ts            plan → execute → cache loop + spec writer
-  planner.ts          planner prompt + JSON decision parsing
-tests/
-  example.spec.ts     cy-ai's example.com demo
-  saucedemo.spec.ts   continuous-testing flows with placeholders
-.claude/agents/
-  test-writer.md      Claude Code subagent for this repo
-```
+The agent is cache-first

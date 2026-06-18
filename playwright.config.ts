@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import 'dotenv/config';
 
 export default defineConfig({
   testDir: './tests',
@@ -10,6 +11,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     headless: true,
+    baseURL: process.env.BASE_URL || 'https://www.saucedemo.com',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     // page.getByTestId() matches this attribute (see selector priority in prompt-template.ts)

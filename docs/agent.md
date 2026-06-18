@@ -61,7 +61,7 @@ No LLM available? Ask Cowork (or the Claude Code `test-writer` subagent) to gene
 ## Troubleshooting
 
 - **"Goal already covered by ... — running it from cache"** — not an error; that's check 1 working. Use `--replan` (or a different `--name`) if you really want to regenerate.
+- **`Cannot reach llama.cpp ... Is llama-server running?`** (or `fetch failed`) — the LLM server isn't up or `LLAMACPP_BASE_URL` is wrong. Start `llama-server` (see providers.md), or switch provider with `PWAI_PROVIDER`. The agent retries 3× then stops without writing a spec.
 - **`TimeoutError: The operation was aborted due to timeout`** — the LLM didn't answer within the limit (common on CPU/iGPU llama.cpp with large pages). The planner now retries up to 3 times and saves a partial plan, so re-running the same command resumes where it stopped. Raise the limit with `PWAI_TIMEOUT` (ms), e.g. `$env:PWAI_TIMEOUT='600000'`, or switch to a faster provider/model.
 - **Agent is sluggish** — it's live-planning a new goal. Check the log: `(via cache)` steps are free; `generating with ...` lines are LLM calls. Reuse goals/wordings, or switch to `claude-cli` / a smaller model.
-- **Step heals or fails repeatedly** — check `healCount` in the step's `.pwai-cache` entry; high counts mean the step wording is ambiguous or the page is unstable. Reword the step and delete the stale cache file (never hand-edit the code inside).
-- **Stale plan after a UI redesign** — `--replan` re-plans the goal; `npm run test:regenerate` regenerates step code for existing specs.
+- **"can't find best locator" / step times out finding an element** — the model picked a brittle selector.

@@ -10,12 +10,14 @@ continuous AI-powered testing).
 - `src/ai.ts` — core engine `runAiSteps`: cache lookup → execute cached code → on miss, generate via LLM → on failure, self-heal (regenerate with failed code + error fed back, up to `healAttempts`).
 - `src/cache.ts` — `.pwai-cache/*.json`, keyed by sha256 of the raw step text. Placeholders (`{{name}}`) are part of the key; their values are not.
 - `src/providers/` — `llamacpp` (default), `claude-cli`, `ollama`, `anthropic`, `openai`. Selected via `PWAI_PROVIDER`.
-- `src/prompt-template.ts` — the LLM prompt; generated code is the body of an async fn with `page`, `expect`, `params` in scope.
-- `agent/` — autonomous test-writer agent (`npm run agent`).
+- `src/prompt-template.ts` — the LLM prompt; generated code is the body of an async fn with `page`, `expect`, `params` in scope. Enforces a Cypress-style selector priority (`SELECTOR_PRIORITY`): data-cy → data-test → data-testid → role/label → text → id → name; brittle class chains are forbidden.
+- `src/test-config.ts` — loads `.env` (dotenv) and exports `BASE_URL` and `CREDENTIALS`; specs and the agent import these instead of hardcoding URL/credentials.
+- `agent/` — autonomous test-writer agent (`npm run agent`); cache-first plus dedup/anti-loop so a goal never repeats a step.
 
 ## Conventions when writing specs
 
 - Import from the fixture, not @playwright/test: `import { test } from '../src/fixtures'`.
+- Get URL/credentials from `src/test-config` (`BASE_URL`, `CREDENTIALS`) — never hardcode them in a spec. `page.goto(BASE_URL)`.
 - Navigate with `page.goto(...)` explicitly; `ai()` steps never navigate.
 - Steps are short imperative phrases about user-visible behavior: `"click the login button"`, not CSS selectors.
 - Dynamic values always go through placeholders: step text `'type "{{username}}" into the username field'` + params `{ username: '...' }`. Never inline values that may change — that would invalidate the cache key.
@@ -31,13 +33,4 @@ continuous AI-powered testing).
 - `npm run agent -- --url <url> --goal "<goal>"` — autonomously write a new spec
 - `npm run cache:clear`
 
-## Environment
-
-`PWAI_PROVIDER` (llamacpp default), `PWAI_MODEL`, `PWAI_REGENERATE=1`, `PWAI_LOG=0`,
-`LLAMACPP_BASE_URL`, `CLAUDE_CLI_PATH`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`. See `.env.example`.
-
-## Gotchas
-
-- Changing a step's wording (even punctuation) creates a new cache key → one LLM call to regenerate.
-- Generated code must never call `page.goto` (the prompt forbids it); if you see it in cache entries, the step wording probably implies navigation — reword it.
-- First uncached run is slow (one LLM call per step); that's expected.
+## Enviro
